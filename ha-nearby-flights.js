@@ -4,6 +4,33 @@ const DEFAULT_TILE_URL = "https://basemaps.cartocdn.com/rastertiles/voyager/{z}/
 const DEFAULT_TILE_ATTRIBUTION = "Map data (C) OpenStreetMap, (C) CARTO";
 const DEFAULT_OPEN_URL = "https://www.flightradar24.com/{lat},{lon}/{zoom}";
 const TILE_SIZE = 256;
+const ARC_GIS_OPEN_ATTRIBUTION =
+  "Basemap (C) Esri | Open data may include Overture Maps, OpenStreetMap, Microsoft, and Esri Community Maps";
+const TILE_THEME_PRESETS = {
+  standard: {
+    label: "Standard",
+    tile_url: DEFAULT_TILE_URL,
+    tile_attribution: DEFAULT_TILE_ATTRIBUTION,
+  },
+  light: {
+    label: "Light",
+    tile_url:
+      "https://static-map-tiles-api.arcgis.com/arcgis/rest/services/static-basemap-tiles-service/v1/open/streets/static/tile/{z}/{y}/{x}",
+    tile_attribution: ARC_GIS_OPEN_ATTRIBUTION,
+  },
+  dark: {
+    label: "Dark",
+    tile_url:
+      "https://static-map-tiles-api.arcgis.com/arcgis/rest/services/static-basemap-tiles-service/v1/open/navigation-dark/static/tile/{z}/{y}/{x}",
+    tile_attribution: ARC_GIS_OPEN_ATTRIBUTION,
+  },
+  satellite: {
+    label: "Satellite",
+    tile_url:
+      "https://static-map-tiles-api.arcgis.com/arcgis/rest/services/static-basemap-tiles-service/v1/open/hybrid/detail/static/tile/{z}/{y}/{x}",
+    tile_attribution: ARC_GIS_OPEN_ATTRIBUTION,
+  },
+};
 
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
@@ -142,6 +169,7 @@ class HaNearbyFlightsCard extends HTMLElement {
     this.attachShadow({ mode: "open" });
     this._config = null;
     this._hass = null;
+    this._activeTheme = "standard";
     this._selectedFlightId = null;
     this._mapSize = { width: 0, height: 0 };
     this._resizeObserver = new ResizeObserver((entries) => {
@@ -181,14 +209,17 @@ class HaNearbyFlightsCard extends HTMLElement {
       height: 440,
       zoom: 10,
       max_flights: 60,
+      map_theme: "standard",
+      show_theme_toggle: true,
       show_home: true,
       show_list: true,
       follow_selected: false,
-      tile_url: DEFAULT_TILE_URL,
-      tile_attribution: DEFAULT_TILE_ATTRIBUTION,
+      tile_url: null,
+      tile_attribution: null,
       open_url: DEFAULT_OPEN_URL,
       ...config,
     };
+    this._activeTheme = this._resolveThemeKey(this._config.map_theme);
 
     this._updateCard();
   }
@@ -242,6 +273,51 @@ class HaNearbyFlightsCard extends HTMLElement {
           font-size: 0.86rem;
           white-space: nowrap;
           padding-top: 2px;
+        }
+
+        .header-actions {
+          display: flex;
+          align-items: flex-start;
+          gap: 10px;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+        }
+
+        .theme-switch {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          flex-wrap: wrap;
+        }
+
+        .theme-switch[hidden] {
+          display: none;
+        }
+
+        .theme-button {
+          border: 1px solid rgba(96, 120, 144, 0.24);
+          background: rgba(255, 255, 255, 0.72);
+          color: var(--primary-text-color);
+          border-radius: 999px;
+          padding: 5px 10px;
+          font-size: 0.75rem;
+          line-height: 1;
+          cursor: pointer;
+          transition: border-color 120ms ease, background 120ms ease, transform 120ms ease;
+        }
+
+        .theme-button:hover,
+        .theme-button:focus-visible {
+          transform: translateY(-1px);
+          border-color: rgba(31, 123, 216, 0.36);
+          background: rgba(255, 255, 255, 0.9);
+        }
+
+        .theme-button.active {
+          background: rgba(31, 123, 216, 0.12);
+          border-color: rgba(31, 123, 216, 0.52);
+          color: var(--primary-color);
+          font-weight: 700;
         }
 
         .map-shell {
@@ -506,7 +582,10 @@ class HaNearbyFlightsCard extends HTMLElement {
             <div class="title"></div>
             <div class="meta"></div>
           </div>
-          <a class="open-link" target="_blank" rel="noreferrer">Open map</a>
+          <div class="header-actions">
+            <div class="theme-switch"></div>
+            <a class="open-link" target="_blank" rel="noreferrer">Open map</a>
+          </div>
         </div>
         <div class="map-shell">
           <div class="map"></div>
@@ -518,6 +597,7 @@ class HaNearbyFlightsCard extends HTMLElement {
 
     this._titleEl = this.shadowRoot.querySelector(".title");
     this._metaEl = this.shadowRoot.querySelector(".meta");
+    this._themeSwitchEl = this.shadowRoot.querySelector(".theme-switch");
     this._openLinkEl = this.shadowRoot.querySelector(".open-link");
     this._mapEl = this.shadowRoot.querySelector(".map");
     this._detailsEl = this.shadowRoot.querySelector(".details");
@@ -526,6 +606,71 @@ class HaNearbyFlightsCard extends HTMLElement {
 
   _getEntityState() {
     return this._hass?.states?.[this._config?.entity || DEFAULT_ENTITY];
+  }
+
+  _resolveThemeKey(theme) {
+    const key = String(theme || "standard").toLowerCase();
+    return TILE_THEME_PRESETS[key] ? key : "standard";
+  }
+
+  _usingCustomTileSource() {
+    return hasValue(this._config?.tile_url);
+  }
+
+  _getTileSource() {
+    if (this._usingCustomTileSource()) {
+      return {
+        key: "custom",
+        tile_url: String(this._config.tile_url),
+        tile_attribution: String(
+          this._config.tile_attribution || DEFAULT_TILE_ATTRIBUTION,
+        ),
+      };
+    }
+
+    const key = this._resolveThemeKey(this._activeTheme || this._config?.map_theme);
+    return {
+      key,
+      ...TILE_THEME_PRESETS[key],
+    };
+  }
+
+  _renderThemeSwitch() {
+    if (!this._themeSwitchEl) {
+      return;
+    }
+
+    if (this._config?.show_theme_toggle === false || this._usingCustomTileSource()) {
+      this._themeSwitchEl.hidden = true;
+      this._themeSwitchEl.innerHTML = "";
+      return;
+    }
+
+    const activeKey = this._resolveThemeKey(this._activeTheme || this._config?.map_theme);
+    const order = ["standard", "light", "dark", "satellite"];
+
+    this._themeSwitchEl.hidden = false;
+    this._themeSwitchEl.innerHTML = order
+      .map((key) => {
+        const preset = TILE_THEME_PRESETS[key];
+        return `
+          <button
+            class="theme-button ${activeKey === key ? "active" : ""}"
+            type="button"
+            data-theme="${key}"
+          >
+            ${escapeHtml(preset.label)}
+          </button>
+        `;
+      })
+      .join("");
+
+    this._themeSwitchEl.querySelectorAll("[data-theme]").forEach((button) => {
+      button.addEventListener("click", () => {
+        this._activeTheme = this._resolveThemeKey(button.dataset.theme);
+        this._updateCard();
+      });
+    });
   }
 
   _normalizeFlights(entity) {
@@ -710,6 +855,7 @@ class HaNearbyFlightsCard extends HTMLElement {
     const zoom = clamp(Math.round(toNumber(this._config.zoom) || 10), 2, 16);
     const maxFlights = clamp(Math.round(toNumber(this._config.max_flights) || 60), 1, 500);
     const visibleFlights = flights.slice(0, maxFlights);
+    const tileSource = this._getTileSource();
 
     this._mapEl.style.height = `${height}px`;
 
@@ -732,7 +878,7 @@ class HaNearbyFlightsCard extends HTMLElement {
         const top = tileY * TILE_SIZE - startY;
         const retinaSuffix = window.devicePixelRatio > 1 ? "@2x" : "";
         const subdomain = ["a", "b", "c", "d"][Math.abs(tileX + tileY) % 4];
-        const url = String(this._config.tile_url || DEFAULT_TILE_URL)
+        const url = String(tileSource.tile_url || DEFAULT_TILE_URL)
           .replaceAll("{z}", String(zoom))
           .replaceAll("{x}", String(wrappedTileX))
           .replaceAll("{y}", String(tileY))
@@ -835,7 +981,7 @@ class HaNearbyFlightsCard extends HTMLElement {
             ? "Centered on selected aircraft"
             : "Centered on nearby aircraft";
 
-    const attribution = escapeHtml(this._config.tile_attribution || DEFAULT_TILE_ATTRIBUTION);
+    const attribution = escapeHtml(tileSource.tile_attribution || DEFAULT_TILE_ATTRIBUTION);
 
     this._mapEl.innerHTML = `
       <div class="tiles">${tiles.join("")}</div>
@@ -1000,6 +1146,7 @@ class HaNearbyFlightsCard extends HTMLElement {
     if (!entity) {
       this._titleEl.textContent = this._config.title || DEFAULT_TITLE;
       this._metaEl.textContent = `Entity not found: ${this._config.entity || DEFAULT_ENTITY}`;
+      this._renderThemeSwitch();
       this._openLinkEl.href = DEFAULT_OPEN_URL
         .replaceAll("{lat}", "39.50000")
         .replaceAll("{lon}", "-98.35000")
@@ -1019,6 +1166,7 @@ class HaNearbyFlightsCard extends HTMLElement {
     const selectedFlight = this._pickSelectedFlight(normalized.flights);
     const center = this._deriveCenter(normalized.flights, selectedFlight);
     const openUrl = this._buildOpenUrl(center, selectedFlight);
+    const tileSource = this._getTileSource();
 
     this._titleEl.textContent =
       this._config.title || entity.attributes.friendly_name || DEFAULT_TITLE;
@@ -1026,8 +1174,12 @@ class HaNearbyFlightsCard extends HTMLElement {
     const baseMeta = `${normalized.flights.length} aircraft on map`;
     const skippedMeta =
       normalized.skipped > 0 ? `, ${normalized.skipped} skipped without coordinates` : "";
-    this._metaEl.textContent = `${baseMeta}${skippedMeta}`;
+    const themeMeta = tileSource.key === "custom"
+      ? ", custom map tiles"
+      : `, ${tileSource.label.toLowerCase()} theme`;
+    this._metaEl.textContent = `${baseMeta}${skippedMeta}${themeMeta}`;
     this._openLinkEl.href = openUrl;
+    this._renderThemeSwitch();
 
     this._renderMap(center, normalized.flights, selectedFlight);
     this._renderDetails(normalized.flights, selectedFlight, center);

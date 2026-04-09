@@ -54,6 +54,8 @@ show_list: true
 - `longitude`: optional map center longitude override
 - `max_flights`: maximum number of aircraft markers to render
 - `focus_id`: optional initial flight identifier to select
+- `map_theme`: built-in map style preset: `standard`, `light`, `dark`, or `satellite`
+- `show_theme_toggle`: show map-style buttons in the card header
 - `show_home`: show a home marker using the Home Assistant location when available
 - `show_list`: show the selectable aircraft list below the map
 - `follow_selected`: center the map on the selected aircraft instead of the home area
@@ -64,6 +66,9 @@ show_list: true
 ## Notes
 
 - The default map tiles now use the same CARTO Voyager raster basemap pattern Home Assistant's own frontend map code uses.
+- Built-in `light`, `dark`, and `satellite` themes are available when you are not overriding `tile_url`.
+- The built-in `light`, `dark`, and `satellite` presets use ArcGIS static basemap styles, so keep the visible attribution in place and follow the provider's terms.
+- If you set `tile_url`, it takes priority over `map_theme` and the theme toggle is hidden.
 - If you prefer a different tile source, override `tile_url` and `tile_attribution`.
 - The card only reads Lovelace-visible Home Assistant state. It does not create entities and does not require a companion custom integration.
 - Flights without valid latitude and longitude are skipped on the map but still count toward the source sensor's total.
