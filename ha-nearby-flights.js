@@ -211,6 +211,8 @@ class HaNearbyFlightsCard extends HTMLElement {
       max_flights: 60,
       map_theme: "standard",
       show_theme_toggle: true,
+      show_center_label: false,
+      compact_footer: true,
       show_home: true,
       show_list: true,
       follow_selected: false,
@@ -447,6 +449,17 @@ class HaNearbyFlightsCard extends HTMLElement {
           pointer-events: none;
         }
 
+        .map-footer.compact {
+          left: 8px;
+          right: 8px;
+          bottom: 8px;
+          gap: 8px;
+        }
+
+        .map-footer.compact.right-only {
+          justify-content: flex-end;
+        }
+
         .pill {
           border-radius: 999px;
           background: rgba(12, 24, 37, 0.78);
@@ -454,6 +467,25 @@ class HaNearbyFlightsCard extends HTMLElement {
           padding: 6px 10px;
           font-size: 0.74rem;
           backdrop-filter: blur(6px);
+        }
+
+        .map-footer.compact .pill {
+          padding: 3px 7px;
+          font-size: 0.63rem;
+          line-height: 1.15;
+          background: rgba(12, 24, 37, 0.72);
+        }
+
+        .center-pill {
+          white-space: nowrap;
+        }
+
+        .attribution-pill {
+          max-width: min(60%, 240px);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          text-align: right;
         }
 
         .details {
@@ -982,6 +1014,15 @@ class HaNearbyFlightsCard extends HTMLElement {
             : "Centered on nearby aircraft";
 
     const attribution = escapeHtml(tileSource.tile_attribution || DEFAULT_TILE_ATTRIBUTION);
+    const showCenterLabel = this._config.show_center_label === true;
+    const compactFooter = this._config.compact_footer !== false;
+    const footerClasses = ["map-footer"];
+    if (compactFooter) {
+      footerClasses.push("compact");
+    }
+    if (!showCenterLabel) {
+      footerClasses.push("right-only");
+    }
 
     this._mapEl.innerHTML = `
       <div class="tiles">${tiles.join("")}</div>
@@ -990,9 +1031,9 @@ class HaNearbyFlightsCard extends HTMLElement {
         ${markers}
       </div>
       ${emptyState}
-      <div class="map-footer">
-        <div class="pill">${escapeHtml(centerLabel)}</div>
-        <div class="pill">${attribution}</div>
+      <div class="${footerClasses.join(" ")}">
+        ${showCenterLabel ? `<div class="pill center-pill">${escapeHtml(centerLabel)}</div>` : ""}
+        <div class="pill attribution-pill" title="${attribution}">${attribution}</div>
       </div>
     `;
 
