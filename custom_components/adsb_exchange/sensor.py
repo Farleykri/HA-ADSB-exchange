@@ -78,6 +78,10 @@ class ADSBExchangeWatchlistSensor(ADSBExchangeBaseEntity, SensorEntity):
         return {
             ATTR_AIRCRAFT: data.aircraft,
             "tracked_aircraft": list(self.coordinator.targets),
+            "nearby_enabled": data.nearby_enabled,
+            "nearby_radius_nm": data.nearby_radius_nm,
+            "home_latitude": data.home_latitude,
+            "home_longitude": data.home_longitude,
             "data_url": data.source_url,
             "map_url": self._entry.options.get(CONF_MAP_URL, self._entry.data.get(CONF_MAP_URL)),
             "fetched_at": data.fetched_at,

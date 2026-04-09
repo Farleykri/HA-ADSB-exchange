@@ -3,12 +3,14 @@
     "step": {
       "user": {
         "title": "Set up an ADS-B Exchange watchlist",
-        "description": "Track aircraft by tail number, ICAO hex, or callsign. Separate multiple values with commas.",
+        "description": "Track aircraft by tail number, ICAO hex, or callsign, and optionally show nearby flights around your Home Assistant home location.",
         "data": {
           "name": "Name",
           "tracked_aircraft": "Tracked aircraft",
           "data_url": "Aircraft feed URL",
           "api_key": "ADS-B Exchange API key",
+          "enable_nearby": "Show nearby flights",
+          "nearby_radius": "Nearby radius (nautical miles)",
           "map_url": "Map URL",
           "scan_interval": "Update interval (seconds)",
           "request_timeout": "Request timeout (seconds)"
@@ -19,18 +21,21 @@
       "at_least_one_aircraft": "Add at least one aircraft identifier.",
       "invalid_url": "Enter a valid URL for both the feed and the map.",
       "api_key_required": "The official ADS-B Exchange gateway requires an API key.",
-      "unsupported_public_feed": "The public globe aircraft.json feed is blocked. Use the official API gateway or your own aircraft.json feed."
+      "unsupported_public_feed": "The public globe aircraft.json feed is blocked. Use the official API gateway or your own aircraft.json feed.",
+      "no_mode_selected": "Enable nearby flights or add at least one tracked aircraft."
     }
   },
   "options": {
     "step": {
       "init": {
         "title": "Update ADS-B Exchange options",
-        "description": "Adjust the aircraft list or change the feed and map URLs.",
+        "description": "Adjust nearby-flight behavior, the aircraft list, or change the feed and map URLs.",
         "data": {
           "tracked_aircraft": "Tracked aircraft",
           "data_url": "Aircraft feed URL",
           "api_key": "ADS-B Exchange API key",
+          "enable_nearby": "Show nearby flights",
+          "nearby_radius": "Nearby radius (nautical miles)",
           "map_url": "Map URL",
           "scan_interval": "Update interval (seconds)",
           "request_timeout": "Request timeout (seconds)"
@@ -41,7 +46,8 @@
       "at_least_one_aircraft": "Add at least one aircraft identifier.",
       "invalid_url": "Enter a valid URL for both the feed and the map.",
       "api_key_required": "The official ADS-B Exchange gateway requires an API key.",
-      "unsupported_public_feed": "The public globe aircraft.json feed is blocked. Use the official API gateway or your own aircraft.json feed."
+      "unsupported_public_feed": "The public globe aircraft.json feed is blocked. Use the official API gateway or your own aircraft.json feed.",
+      "no_mode_selected": "Enable nearby flights or add at least one tracked aircraft."
     }
   }
 }

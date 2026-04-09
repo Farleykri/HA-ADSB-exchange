@@ -20,6 +20,8 @@ from .const import (
     BLOCKED_PUBLIC_FEED_URL,
     CONF_API_KEY,
     CONF_DATA_URL,
+    CONF_ENABLE_NEARBY,
+    CONF_NEARBY_RADIUS,
     CONF_REQUEST_TIMEOUT,
     CONF_SCAN_INTERVAL,
     CONF_TRACKED_AIRCRAFT,
@@ -27,7 +29,13 @@ from .const import (
     OFFICIAL_API_BASE_PATH,
     OFFICIAL_API_HOST,
 )
-from .helpers import aircraft_candidates, is_hex_identifier, parse_tracked_aircraft, summarize_aircraft
+from .helpers import (
+    aircraft_candidates,
+    haversine_distance_nm,
+    is_hex_identifier,
+    parse_tracked_aircraft,
+    summarize_aircraft,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -41,6 +49,10 @@ class ADSBExchangeCoordinatorData:
     source_url: str
     fetched_at: str
     source_timestamp: str | None
+    nearby_enabled: bool
+    nearby_radius_nm: float
+    home_latitude: float | None
+    home_longitude: float | None
 
 
 class ADSBExchangeCoordinator(DataUpdateCoordinator[ADSBExchangeCoordinatorData]):
@@ -54,6 +66,10 @@ class ADSBExchangeCoordinator(DataUpdateCoordinator[ADSBExchangeCoordinatorData]
         self._targets = parse_tracked_aircraft(self._config(CONF_TRACKED_AIRCRAFT))
         self._source_url = str(self._config(CONF_DATA_URL))
         self._api_key = str(self._config(CONF_API_KEY) or "").strip()
+        self._enable_nearby = bool(self._config(CONF_ENABLE_NEARBY))
+        self._nearby_radius_nm = float(self._config(CONF_NEARBY_RADIUS))
+        self._home_latitude = hass.config.latitude
+        self._home_longitude = hass.config.longitude
         self._timeout = int(self._config(CONF_REQUEST_TIMEOUT))
 
         super().__init__(
@@ -67,6 +83,16 @@ class ADSBExchangeCoordinator(DataUpdateCoordinator[ADSBExchangeCoordinatorData]
     def targets(self) -> tuple[str, ...]:
         """Return tracked identifiers configured for this entry."""
         return self._targets
+
+    @property
+    def nearby_enabled(self) -> bool:
+        """Return True when nearby mode is enabled."""
+        return self._enable_nearby
+
+    @property
+    def nearby_radius_nm(self) -> float:
+        """Return the configured nearby search radius."""
+        return self._nearby_radius_nm
 
     def _config(self, key: str) -> Any:
         """Get a config value with options preferred over data."""
@@ -158,6 +184,17 @@ class ADSBExchangeCoordinator(DataUpdateCoordinator[ADSBExchangeCoordinatorData]
             requests.append(
                 self._async_api_request("GET", f"{base_url}/callsign/{encoded_callsigns}")
             )
+
+        if self._enable_nearby:
+            if self._home_latitude is None or self._home_longitude is None:
+                raise UpdateFailed(
+                    "Nearby mode requires Home Assistant latitude and longitude to be configured."
+                )
+            nearby_url = (
+                f"{base_url}/lat/{self._home_latitude}/lon/{self._home_longitude}/dist/"
+                f"{self._nearby_radius_nm}"
+            )
+            requests.append(self._async_api_request("GET", nearby_url))
 
         if not requests:
             return [], None
@@ -252,17 +289,36 @@ class ADSBExchangeCoordinator(DataUpdateCoordinator[ADSBExchangeCoordinatorData]
             if not isinstance(raw_aircraft_data, dict):
                 continue
 
+            summary = summarize_aircraft(raw_aircraft_data, fetched_at)
             matches: list[tuple[str, str]] = []
             for normalized_value, match_type in aircraft_candidates(raw_aircraft_data).items():
                 if normalized_value in target_lookup:
                     matches.append((target_lookup[normalized_value], match_type))
 
-            if not matches:
+            distance_nm = None
+            is_nearby = False
+            if (
+                self._enable_nearby
+                and self._home_latitude is not None
+                and self._home_longitude is not None
+                and summary.get("latitude") is not None
+                and summary.get("longitude") is not None
+            ):
+                distance_nm = haversine_distance_nm(
+                    self._home_latitude,
+                    self._home_longitude,
+                    summary["latitude"],
+                    summary["longitude"],
+                )
+                is_nearby = distance_nm <= self._nearby_radius_nm
+
+            if not matches and not is_nearby:
                 continue
 
-            summary = summarize_aircraft(raw_aircraft_data, fetched_at)
             summary[ATTR_MATCHED_TARGETS] = sorted({target for target, _ in matches})
             summary["match_types"] = sorted({match_type for _, match_type in matches})
+            summary["distance_nm"] = round(distance_nm, 2) if distance_nm is not None else None
+            summary["is_nearby"] = is_nearby
 
             aircraft_key = summary.get("icao_hex") or ",".join(summary[ATTR_MATCHED_TARGETS])
             existing_aircraft = aircraft_by_hex.get(aircraft_key)
@@ -300,4 +356,8 @@ class ADSBExchangeCoordinator(DataUpdateCoordinator[ADSBExchangeCoordinatorData]
             source_url=self._source_url,
             fetched_at=fetched_at.isoformat(),
             source_timestamp=source_timestamp_iso,
+            nearby_enabled=self._enable_nearby,
+            nearby_radius_nm=self._nearby_radius_nm,
+            home_latitude=self._home_latitude,
+            home_longitude=self._home_longitude,
         )

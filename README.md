@@ -1,6 +1,6 @@
 # ADS-B Exchange Watchlist for Home Assistant
 
-`adsb_exchange` is a HACS-ready custom integration for tracking aircraft from an ADS-B Exchange-compatible source and surfacing them in Home Assistant as:
+`adsb_exchange` is a HACS-ready custom integration for showing nearby aircraft around your Home Assistant home location and optionally tracking specific aircraft from an ADS-B Exchange-compatible source.
 
 - one watchlist sensor with the current tracked aircraft list
 - one sensor per tracked aircraft identifier
@@ -9,7 +9,7 @@
 
 ## What it shows
 
-Each tracked aircraft can expose:
+Nearby or tracked aircraft can expose:
 
 - tail number
 - ICAO hex
@@ -32,9 +32,11 @@ Each tracked aircraft can expose:
 
 During config flow you can set:
 
-- `Tracked aircraft`: comma-separated tail numbers, ICAO hex codes, or callsigns
+- `Tracked aircraft`: optional comma-separated tail numbers, ICAO hex codes, or callsigns
 - `Aircraft feed URL`: defaults to `https://gateway.adsbexchange.com/api/aircraft/v2`
 - `ADS-B Exchange API key`: required when using the official ADS-B Exchange gateway
+- `Show nearby flights`: enabled by default and centered on the Home Assistant home location
+- `Nearby radius`: defaults to `25` nautical miles
 - `Map URL`: defaults to `https://globe.adsbexchange.com/`
 - `Update interval`: polling interval in seconds
 - `Request timeout`: timeout for each refresh
@@ -44,6 +46,8 @@ Example tracked aircraft list:
 ```text
 N123AB, A1B2C3, UAL123
 ```
+
+If you only want flights over your house, leave `Tracked aircraft` empty and keep `Show nearby flights` enabled.
 
 ## Supported data sources
 
@@ -59,6 +63,7 @@ The integration will query:
 - `/hex` for ICAO hex lookups
 - `/registration` for tail number lookups
 - `/callsign/{callsign}` for callsign lookups
+- `/lat/{lat}/lon/{lon}/dist/{dist}` for nearby flights around your Home Assistant home location
 
 ### Local tar1090 / readsb feed
 
@@ -79,6 +84,7 @@ For a config entry named `NYC Flights`, the integration creates:
 - one device tracker per tracked identifier
 
 The watchlist sensor exposes a rich `aircraft` attribute that the Lovelace card reads directly.
+When nearby mode is enabled, that sensor contains aircraft within your configured radius even if no tracked list is configured.
 
 Because the integration also creates `device_tracker` entities, you can use Home Assistant's built-in map card even if you do not want the custom ADS-B Exchange iframe card.
 
@@ -116,8 +122,6 @@ entity: sensor.nyc_flights_watchlist
 title: NYC Flights
 height: 460
 zoom: 8
-site_lat: 40.7128
-site_lon: -74.0060
 hide_sidebar: true
 hide_buttons: true
 filter_to_tracked: true
@@ -132,8 +136,8 @@ show_details: true
 - `map_url`: optional map URL override
 - `focus_identifier`: select a specific tail number / hex / callsign first
 - `zoom`: map zoom value
-- `site_lat`: map center latitude
-- `site_lon`: map center longitude
+- `site_lat`: optional map center latitude, otherwise uses Home Assistant home latitude when available
+- `site_lon`: optional map center longitude, otherwise uses Home Assistant home longitude when available
 - `hide_sidebar`: hide the ADS-B Exchange sidebar
 - `hide_buttons`: hide on-map controls
 - `enable_labels`: request map labels

@@ -315,6 +315,14 @@ class AdsbExchangeMapCard extends HTMLElement {
       }
     });
 
+    if (!hasValue(this._config.site_lat) && hasValue(entity?.attributes?.home_latitude)) {
+      params.set("SiteLat", String(entity.attributes.home_latitude));
+    }
+
+    if (!hasValue(this._config.site_lon) && hasValue(entity?.attributes?.home_longitude)) {
+      params.set("SiteLon", String(entity.attributes.home_longitude));
+    }
+
     if (hasValue(this._config.extra_query)) {
       const extraParams = new URLSearchParams(String(this._config.extra_query));
       extraParams.forEach((value, key) => params.set(key, value));
@@ -343,7 +351,7 @@ class AdsbExchangeMapCard extends HTMLElement {
     if (!aircraft.length) {
       this._detailsEl.innerHTML = `
         <div class="empty">
-          No tracked aircraft are visible right now. The card will update automatically when the feed sees them again.
+          No nearby or tracked aircraft are visible right now. The card will update automatically when the feed sees them again.
         </div>
       `;
       return;
@@ -362,6 +370,7 @@ class AdsbExchangeMapCard extends HTMLElement {
         const status = escapeHtml(item.status || "unknown");
         const typeLabel = escapeHtml(item.aircraft_type || item.description || "Unknown");
         const dataHex = escapeHtml(item.icao_hex || "");
+        const distance = hasValue(item.distance_nm) ? `${Number(item.distance_nm).toFixed(1)} nm` : "Unknown";
         return `
           <div class="aircraft-row ${selected ? "selected" : ""}" data-hex="${dataHex}">
             <div class="row-top">
@@ -387,6 +396,10 @@ class AdsbExchangeMapCard extends HTMLElement {
               <div class="field">
                 <div class="field-label">Coordinates</div>
                 <div class="field-value">${latitude}, ${longitude}</div>
+              </div>
+              <div class="field">
+                <div class="field-label">Distance</div>
+                <div class="field-value">${distance}</div>
               </div>
               <div class="field">
                 <div class="field-label">Type</div>
@@ -434,7 +447,11 @@ class AdsbExchangeMapCard extends HTMLElement {
     const derivedTitle = this._config.title || entity.attributes.entry_title || "ADS-B Exchange";
 
     this._titleEl.textContent = derivedTitle;
-    this._metaEl.textContent = `${aircraft.length} tracked aircraft visible`;
+    const nearbyEnabled = Boolean(entity.attributes.nearby_enabled);
+    const radius = entity.attributes.nearby_radius_nm;
+    this._metaEl.textContent = nearbyEnabled
+      ? `${aircraft.length} aircraft visible within ${radius} nm`
+      : `${aircraft.length} tracked aircraft visible`;
     this._linkEl.href = mapUrl;
     this._frameEl.style.height = `${Number(this._config.height) || 420}px`;
 

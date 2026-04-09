@@ -13,14 +13,18 @@ from .const import (
     BLOCKED_PUBLIC_FEED_URL,
     CONF_API_KEY,
     CONF_DATA_URL,
+    CONF_ENABLE_NEARBY,
     CONF_MAP_URL,
+    CONF_NEARBY_RADIUS,
     CONF_REQUEST_TIMEOUT,
     CONF_SCAN_INTERVAL,
     CONF_TRACKED_AIRCRAFT,
     DEFAULT_DATA_URL,
     DEFAULT_API_KEY,
+    DEFAULT_ENABLE_NEARBY,
     DEFAULT_MAP_URL,
     DEFAULT_NAME,
+    DEFAULT_NEARBY_RADIUS,
     DEFAULT_REQUEST_TIMEOUT,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
@@ -42,6 +46,14 @@ def _schema(defaults: dict[str, Any], *, include_name: bool) -> vol.Schema:
         ): str,
         vol.Required(CONF_DATA_URL, default=defaults[CONF_DATA_URL]): str,
         vol.Optional(CONF_API_KEY, default=defaults[CONF_API_KEY]): str,
+        vol.Required(
+            CONF_ENABLE_NEARBY,
+            default=defaults[CONF_ENABLE_NEARBY],
+        ): bool,
+        vol.Required(
+            CONF_NEARBY_RADIUS,
+            default=defaults[CONF_NEARBY_RADIUS],
+        ): vol.All(vol.Coerce(float), vol.Range(min=1, max=250)),
         vol.Required(CONF_MAP_URL, default=defaults[CONF_MAP_URL]): str,
         vol.Required(
             CONF_SCAN_INTERVAL,
@@ -68,6 +80,8 @@ def _defaults(data: dict[str, Any]) -> dict[str, Any]:
         CONF_TRACKED_AIRCRAFT: ",".join(data.get(CONF_TRACKED_AIRCRAFT, ())),
         CONF_DATA_URL: data.get(CONF_DATA_URL, DEFAULT_DATA_URL),
         CONF_API_KEY: data.get(CONF_API_KEY, DEFAULT_API_KEY),
+        CONF_ENABLE_NEARBY: data.get(CONF_ENABLE_NEARBY, DEFAULT_ENABLE_NEARBY),
+        CONF_NEARBY_RADIUS: data.get(CONF_NEARBY_RADIUS, DEFAULT_NEARBY_RADIUS),
         CONF_MAP_URL: data.get(CONF_MAP_URL, DEFAULT_MAP_URL),
         CONF_SCAN_INTERVAL: data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
         CONF_REQUEST_TIMEOUT: data.get(CONF_REQUEST_TIMEOUT, DEFAULT_REQUEST_TIMEOUT),
@@ -78,8 +92,10 @@ def _normalize_input(user_input: dict[str, Any]) -> tuple[dict[str, Any] | None,
     errors: dict[str, str] = {}
 
     tracked_aircraft = parse_tracked_aircraft(user_input[CONF_TRACKED_AIRCRAFT])
-    if not tracked_aircraft:
-        errors["base"] = "at_least_one_aircraft"
+    enable_nearby = bool(user_input[CONF_ENABLE_NEARBY])
+    nearby_radius = float(user_input[CONF_NEARBY_RADIUS])
+    if not tracked_aircraft and not enable_nearby:
+        errors["base"] = "no_mode_selected"
 
     if not _valid_url(user_input[CONF_DATA_URL]) or not _valid_url(user_input[CONF_MAP_URL]):
         errors["base"] = "invalid_url"
@@ -100,6 +116,8 @@ def _normalize_input(user_input: dict[str, Any]) -> tuple[dict[str, Any] | None,
         CONF_TRACKED_AIRCRAFT: tracked_aircraft,
         CONF_DATA_URL: user_input[CONF_DATA_URL].strip(),
         CONF_API_KEY: api_key,
+        CONF_ENABLE_NEARBY: enable_nearby,
+        CONF_NEARBY_RADIUS: nearby_radius,
         CONF_MAP_URL: user_input[CONF_MAP_URL].strip(),
         CONF_SCAN_INTERVAL: int(user_input[CONF_SCAN_INTERVAL]),
         CONF_REQUEST_TIMEOUT: int(user_input[CONF_REQUEST_TIMEOUT]),

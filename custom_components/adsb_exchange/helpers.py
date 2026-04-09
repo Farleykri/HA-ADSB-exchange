@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from datetime import UTC, datetime
+import math
 import re
 from typing import Any
 
@@ -48,6 +49,31 @@ def identifier_slug(value: str) -> str:
 def is_hex_identifier(value: str) -> bool:
     """Return True when the identifier looks like an ICAO hex code."""
     return bool(re.fullmatch(r"[0-9A-F]{6}", normalize_identifier(value)))
+
+
+def haversine_distance_nm(
+    latitude_a: float,
+    longitude_a: float,
+    latitude_b: float,
+    longitude_b: float,
+) -> float:
+    """Return the distance between two coordinates in nautical miles."""
+    radius_nm = 3440.065
+
+    lat1 = math.radians(latitude_a)
+    lon1 = math.radians(longitude_a)
+    lat2 = math.radians(latitude_b)
+    lon2 = math.radians(longitude_b)
+
+    delta_lat = lat2 - lat1
+    delta_lon = lon2 - lon1
+
+    a = (
+        math.sin(delta_lat / 2) ** 2
+        + math.cos(lat1) * math.cos(lat2) * math.sin(delta_lon / 2) ** 2
+    )
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return radius_nm * c
 
 
 def coerce_float(value: Any) -> float | None:
