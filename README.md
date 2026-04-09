@@ -1,17 +1,17 @@
-# FR24 Nearby Flights Map Card for Home Assistant
+# HA Nearby Flights Card
 
-This repository is being repurposed into a Lovelace custom card for the existing [home-assistant-flightradar24](https://github.com/AlexandrErohin/home-assistant-flightradar24) integration.
+`ha-nearby-flights` is a HACS dashboard/plugin repository for a Lovelace card that works with the existing [home-assistant-flightradar24](https://github.com/AlexandrErohin/home-assistant-flightradar24) integration.
 
-The goal is simple: take the flights already exposed by `sensor.flightradar24_current_in_area` and plot them on a map so a user can glance at nearby aircraft over their area.
+It reads the `flights` attribute from `sensor.flightradar24_current_in_area` and plots nearby aircraft on a map with a selectable details list.
 
-## Target experience
+## What it needs
 
-- install the Flightradar24 integration you already like
-- add this card to Lovelace
-- point it at `sensor.flightradar24_current_in_area`
-- see aircraft markers on a map with quick flight details
+- Home Assistant
+- HACS
+- the [home-assistant-flightradar24](https://github.com/AlexandrErohin/home-assistant-flightradar24) integration
+- an entity like `sensor.flightradar24_current_in_area` with a `flights` attribute
 
-The card is intended to work with flight objects like:
+The card is designed around flight data like:
 
 - `flight_number`
 - `callsign`
@@ -25,54 +25,44 @@ The card is intended to work with flight objects like:
 - `airport_origin_name`
 - `airport_destination_name`
 
-## Planned card behavior
+## Installation
 
-- plot each flight from the sensor's `flights` attribute using `latitude` and `longitude`
-- show a details panel for the selected aircraft
-- fall back cleanly when a field is missing
-- support centering the map on the user's home area or a configured location
-- stay lightweight and easy to configure
+1. Add this repository to HACS as a `Dashboard` repository.
+2. Install `HA Nearby Flights Card`.
+3. Ensure the Lovelace resource exists.
+4. If HACS does not register it automatically, add `/hacsfiles/ha-nearby-flights/ha-nearby-flights.js` as a `JavaScript Module`.
 
-Example template data the card is being designed around:
+## Example card
 
-```jinja
-{% set flights = state_attr('sensor.flightradar24_current_in_area', 'flights') or [] %}
-
-Flights in area: {{ flights | count }}
-
-{% for flight in flights %}
-Flight: {{ flight.flight_number | default(flight.callsign, true) | default(flight.aircraft_registration, true) | default('Unknown', true) }}
-  Lat: {{ flight.latitude }}
-  Lon: {{ flight.longitude }}
-  Alt: {{ flight.altitude }}
-  Speed: {{ flight.ground_speed }}
-  Airline: {{ flight.airline_name }}
-  Aircraft: {{ flight.aircraft_model }}
-  From: {{ flight.airport_origin_name }}
-  To: {{ flight.airport_destination_name }}
-
-{% endfor %}
+```yaml
+type: custom:ha-nearby-flights-card
+entity: sensor.flightradar24_current_in_area
+title: Flights Over Home
+height: 460
+zoom: 10
+show_home: true
+show_list: true
 ```
 
-## Current status
+## Card options
 
-This repository is not yet the finished Flightradar24 card.
+- `entity`: Flightradar24 area sensor, defaults to `sensor.flightradar24_current_in_area`
+- `title`: card title
+- `height`: map height in pixels
+- `zoom`: slippy-map zoom level
+- `latitude`: optional map center latitude override
+- `longitude`: optional map center longitude override
+- `max_flights`: maximum number of aircraft markers to render
+- `focus_id`: optional initial flight identifier to select
+- `show_home`: show a home marker using the Home Assistant location when available
+- `show_list`: show the selectable aircraft list below the map
+- `follow_selected`: center the map on the selected aircraft instead of the home area
+- `tile_url`: optional tile URL template, defaults to `https://tile.openstreetmap.org/{z}/{x}/{y}.png`
+- `tile_attribution`: attribution text shown on the map
+- `open_url`: optional external map URL template. Supported placeholders are `{lat}`, `{lon}`, `{zoom}`, `{flight_number}`, `{callsign}`, and `{registration}`
 
-What is true today:
+## Notes
 
-- the repo branding and documentation now reflect the new goal
-- the next implementation step is a frontend Lovelace map card that reads `sensor.flightradar24_current_in_area`
-- the older `custom_components/adsb_exchange` code is legacy prototype work from the previous direction and should be treated as temporary while this repo is being pivoted
-
-## Near-term roadmap
-
-1. Build the custom Lovelace card around the Flightradar24 sensor data model.
-2. Render aircraft markers and a selection/details experience on the map.
-3. Update packaging so the repository is card-first instead of integration-first.
-4. Add polished setup docs and screenshots once the card is working end to end.
-
-## Repository note
-
-If you are here looking for the established backend integration that provides the `flights` data, use [home-assistant-flightradar24](https://github.com/AlexandrErohin/home-assistant-flightradar24).
-
-This repo's job is the map card layer that sits on top of that integration.
+- The default map tiles come from OpenStreetMap. For heavier usage, switch `tile_url` to a provider that matches your expected traffic and terms.
+- The card only reads Lovelace-visible Home Assistant state. It does not create entities and does not require a companion custom integration.
+- Flights without valid latitude and longitude are skipped on the map but still count toward the source sensor's total.

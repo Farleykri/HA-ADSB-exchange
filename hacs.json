@@ -1,8 +1,7 @@
 {
-  "name": "FR24 Nearby Flights Map Card Prototype",
-  "domains": [
-    "adsb_exchange"
-  ],
+  "name": "HA Nearby Flights Card",
+  "content_in_root": true,
+  "filename": "ha-nearby-flights.js",
   "homeassistant": "2024.7.0",
   "render_readme": true
 }
